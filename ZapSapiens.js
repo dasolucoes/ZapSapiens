@@ -61,6 +61,10 @@ io.on('connection', (socket) => {
             io.emit('log', 'Iniciando bot...');
         }
     });
+app.get('/qrcode', (req, res) => {
+    const qr = fs.readFileSync('qrcode.txt', 'utf8');
+    res.send(`<pre>${qr}</pre><p>Escaneie com o WhatsApp.</p>`);
+});
     socket.on('stop-bot', () => {
         if (botRunning) {
             client.destroy();
