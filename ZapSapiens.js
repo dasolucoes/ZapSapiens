@@ -23,9 +23,10 @@ let botRunning = false;
 let conversationHistory = [];
 
 client.on('qr', qr => {
-    console.log('QR code gerado!');
-    io.emit('log', 'QR code gerado. Escaneie no WhatsApp!');
+    console.log('QR Code gerado. Escaneie no WhatsApp:');
     qrcode.generate(qr, { small: true });
+    fs.writeFileSync('qrcode.txt', qr); // Salva o QR como texto
+    io.emit('log', 'QR Code gerado. Salvo em qrcode.txt. Escaneie manualmente.');
 });
 
 client.on('ready', () => {
