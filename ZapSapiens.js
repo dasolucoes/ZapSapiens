@@ -5,6 +5,7 @@ const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
 const path = require('path');
+const { GoogleGenerativeAI } = require('@google/generative-ai'); // Importação correta
 
 const app = express();
 const server = http.createServer(app);
