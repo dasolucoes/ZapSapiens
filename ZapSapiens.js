@@ -1,7 +1,5 @@
 const { Client } = require('whatsapp-web.js');
-const qrcode = require('qrcode-terminal');
-const { GoogleGenerativeAI } = require('@google/generative-ai');
-const axios = require('axios');
+const qrcode = require('qrcode');
 const fs = require('fs');
 const express = require('express');
 const http = require('http');
@@ -15,34 +13,34 @@ const io = socketIo(server);
 app.use(express.static('public'));
 
 const client = new Client();
-const API_KEY = 'AIzaSyCZWZzE6sW5UgzPy_gyLJ0Svn2hJI311Qc'; // Substitua pela sua chave do Gemini
+const API_KEY = process.env.API_KEY; // Usa variável de ambiente do Render
 const genAI = new GoogleGenerativeAI(API_KEY);
 const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
-let botRunning = false;
-let conversationHistory = [];
+let qrImagePath = null;
+let isQrScanned = false;
 
-client.on('qr', qr => {
-    console.log('QR Code gerado. Escaneie no WhatsApp:');
-    qrcode.generate(qr, { small: true });
-    fs.writeFileSync('qrcode.txt', qr); // Salva o QR como texto
-    io.emit('log', 'QR Code gerado. Salvo em qrcode.txt. Escaneie manualmente.');
+client.on('qr', async (qr) => {
+    console.log('QR Code gerado. Escaneie no WhatsApp.');
+    qrImagePath = path.join(__dirname, 'qrcode.png');
+    await qrcode.toFile(qrImagePath, qr); // Gera imagem PNG
+    io.emit('qr', '/qrcode.png'); // Envia caminho para o dashboard
 });
 
 client.on('ready', () => {
     console.log('ZapSapiens pronto!');
-    botRunning = true;
-    io.emit('log', 'Bot conectado!');
+    isQrScanned = true;
+    if (qrImagePath && fs.existsSync(qrImagePath)) {
+        fs.unlinkSync(qrImagePath); // Remove QR após escaneamento
+    }
     io.emit('status', { running: true });
+    io.emit('qr', null); // Remove QR do dashboard
 });
 
-client.on('message', async message => {
+client.on('message', async (message) => {
     io.emit('log', `Mensagem recebida: ${message.body || '[Imagem]'}`);
-    
-    // Lógica do bot (mesma do código anterior, simplificada para brevidade)
     let prompt = message.body || 'Analise a imagem.';
-    // ... (insira a lógica completa de busca web, imagem e Gemini do código anterior aqui)
-    
+    // (Lógica de processamento como no código anterior, simplificada aqui)
     try {
         const result = await model.generateContent(prompt);
         const reply = result.response.text();
@@ -54,31 +52,26 @@ client.on('message', async message => {
 });
 
 io.on('connection', (socket) => {
-    socket.emit('status', { running: botRunning });
+    socket.emit('status', { running: client.initialized });
+    socket.emit('qr', qrImagePath ? '/qrcode.png' : null);
     socket.on('start-bot', () => {
-        if (!botRunning) {
-            client.initialize();
-            io.emit('log', 'Iniciando bot...');
-        }
+        if (!client.initialized) client.initialize();
     });
-app.get('/qrcode', (req, res) => {
-    const qr = fs.readFileSync('qrcode.txt', 'utf8');
-    res.send(`<pre>${qr}</pre><p>Escaneie com o WhatsApp.</p>`);
-});
     socket.on('stop-bot', () => {
-        if (botRunning) {
-            client.destroy();
-            botRunning = false;
-            io.emit('log', 'Bot parado.');
-            io.emit('status', { running: false });
-        }
+        if (client.initialized) client.destroy();
     });
 });
 
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+app.get('/qrcode.png', (req, res) => {
+    if (qrImagePath && fs.existsSync(qrImagePath)) {
+        res.sendFile(qrImagePath);
+    } else {
+        res.status(404).send('QR Code não disponível.');
+    }
 });
 
 server.listen(3000, () => {
     console.log('Dashboard em http://localhost:3000');
 });
+
+client.initialize();
