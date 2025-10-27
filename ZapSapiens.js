@@ -71,8 +71,9 @@ app.get('/qrcode.png', (req, res) => {
     }
 });
 
-server.listen(3000, () => {
-    console.log('Dashboard em http://localhost:3000');
+const PORT = process.env.PORT || 3000; // Usa a porta do Render ou 3000 como fallback
+server.listen(PORT, '0.0.0.0', () => { // Bind em 0.0.0.0 para Render
+    console.log(`Dashboard em http://0.0.0.0:${PORT}`);
 });
 
 client.initialize();
